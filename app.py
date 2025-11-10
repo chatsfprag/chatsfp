@@ -803,14 +803,19 @@ CONTEXTE DOCUMENTAIRE:
                 
                 # Use HuggingFace's new router endpoint with OpenAI-compatible API
                 llm = ChatOpenAI(
-                    temperature=0.7,
+                    temperature=0.5,  # Moderate temperature for balanced output
                     model_name="mistralai/Mistral-7B-Instruct-v0.2:featherless-ai",
                     openai_api_key=hf_api_key,
-                    max_tokens=2000,
+                    max_tokens=1500,
                     openai_api_base="https://router.huggingface.co/v1",
                     default_headers={
                         "HTTP-Referer": "https://streamlit-rag-app.com",
                         "X-Title": "Streamlit RAG App"
+                    },
+                    model_kwargs={
+                        "frequency_penalty": 0.5,
+                        "presence_penalty": 0.3,
+                        "top_p": 0.9
                     }
                 )
                 
@@ -830,15 +835,22 @@ CONTEXTE DOCUMENTAIRE:
                 progress_container.info("Utilisation de Hugging Face avec Zephyr...")
                 
                 # Use HuggingFace's new router endpoint with OpenAI-compatible API
+                # Add repetition penalties to prevent gibberish loops
                 llm = ChatOpenAI(
-                    temperature=0.7,
+                    temperature=0.3,  # Lower temperature for more focused output
                     model_name="HuggingFaceH4/zephyr-7b-beta:featherless-ai",
                     openai_api_key=hf_api_key,
-                    max_tokens=2000,
+                    max_tokens=1500,
                     openai_api_base="https://router.huggingface.co/v1",
                     default_headers={
                         "HTTP-Referer": "https://streamlit-rag-app.com",
                         "X-Title": "Streamlit RAG App"
+                    },
+                    model_kwargs={
+                        "frequency_penalty": 0.7,  # Penalize repeated tokens
+                        "presence_penalty": 0.6,   # Encourage new topics
+                        "top_p": 0.9,
+                        "stop": ["\n\n\n", "les résultats", "LES CHAMPIGNONS"]  # Stop sequences to prevent loops
                     }
                 )
                 
