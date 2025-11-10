@@ -16,6 +16,8 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import HumanMessage, SystemMessage
 
 # Import NLTK for query cleaning
 import nltk
@@ -56,9 +58,10 @@ NAMESPACES = {
     'tei': 'http://www.tei-c.org/ns/1.0'
 }
 
-st.title("Retrieval Augmented Generation")
+st.title("ChatSFP")
 if os.path.exists("static/sfp_logo.png"):
     st.image("static/sfp_logo.png", width=100)
+st.markdown("### Exploiter l’intelligence artificielle pour valoriser le patrimoine scientifique.")
 st.markdown("#### Projet préparé par l'équipe ObTIC.")
 
 ############################
@@ -715,9 +718,6 @@ CONTEXTE DOCUMENTAIRE:
 
                 progress_container.info("Utilisation d'OpenRouter avec Llama 4 Maverick...")
                 
-                from langchain_openai import ChatOpenAI
-                from langchain_core.messages import HumanMessage, SystemMessage
-                
                 llm = ChatOpenAI(
                     temperature=0.7,
                     model_name="meta-llama/llama-4-maverick:free",
@@ -746,9 +746,6 @@ CONTEXTE DOCUMENTAIRE:
 
                 progress_container.info("Utilisation d'OpenRouter avec Gemma...")
                 
-                from langchain_openai import ChatOpenAI
-                from langchain_core.messages import HumanMessage
-                
                 llm = ChatOpenAI(
                     temperature=0.7,
                     model_name="google/gemma-3-12b-it:free",
@@ -775,9 +772,6 @@ CONTEXTE DOCUMENTAIRE:
                     return None, None
 
                 progress_container.info("Utilisation d'OpenRouter avec Qwen3 14B...")
-                
-                from langchain_openai import ChatOpenAI
-                from langchain_core.messages import HumanMessage, SystemMessage
                 
                 llm = ChatOpenAI(
                     temperature=0.7,
@@ -807,23 +801,26 @@ CONTEXTE DOCUMENTAIRE:
 
                 progress_container.info("Utilisation de Hugging Face avec Mistral...")
                 
-                # For HuggingFace models, keep the existing approach
-                llm = HuggingFaceHub(
-                    repo_id="mistralai/Mistral-7B-Instruct-v0.2",
-                    huggingfacehub_api_token=hf_api_key,
-                    model_kwargs={
-                        "temperature": 0.7,
-                        "max_new_tokens": 1000,
-                        "top_p": 0.95,
-                        "do_sample": True,
-                        "return_full_text": False
+                # Use HuggingFace's new router endpoint with OpenAI-compatible API
+                llm = ChatOpenAI(
+                    temperature=0.7,
+                    model_name="mistralai/Mistral-7B-Instruct-v0.2",
+                    openai_api_key=hf_api_key,
+                    max_tokens=2000,
+                    openai_api_base="https://router.huggingface.co/v1",
+                    default_headers={
+                        "HTTP-Referer": "https://streamlit-rag-app.com",
+                        "X-Title": "Streamlit RAG App"
                     }
                 )
                 
-                # Combine system and user message for HuggingFace
-                complete_prompt = f"{system_prompt}\n\n{user_message}"
-                response = llm.invoke(complete_prompt)
-                answer = response if isinstance(response, str) else str(response)
+                messages = [
+                    SystemMessage(content=system_prompt),
+                    HumanMessage(content=user_message)
+                ]
+                
+                response = llm.invoke(messages)
+                answer = response.content if hasattr(response, 'content') else str(response)
 
             elif model_choice == "zephyr":
                 if not hf_api_key:
@@ -832,22 +829,26 @@ CONTEXTE DOCUMENTAIRE:
 
                 progress_container.info("Utilisation de Hugging Face avec Zephyr...")
                 
-                llm = HuggingFaceHub(
-                    repo_id="HuggingFaceH4/zephyr-7b-beta",
-                    huggingfacehub_api_token=hf_api_key,
-                    model_kwargs={
-                        "temperature": 0.7,
-                        "max_new_tokens": 1000,
-                        "top_p": 0.95,
-                        "do_sample": True,
-                        "return_full_text": False
+                # Use HuggingFace's new router endpoint with OpenAI-compatible API
+                llm = ChatOpenAI(
+                    temperature=0.7,
+                    model_name="HuggingFaceH4/zephyr-7b-beta",
+                    openai_api_key=hf_api_key,
+                    max_tokens=2000,
+                    openai_api_base="https://router.huggingface.co/v1",
+                    default_headers={
+                        "HTTP-Referer": "https://streamlit-rag-app.com",
+                        "X-Title": "Streamlit RAG App"
                     }
                 )
                 
-                # Combine system and user message for HuggingFace
-                complete_prompt = f"{system_prompt}\n\n{user_message}"
-                response = llm.invoke(complete_prompt)
-                answer = response if isinstance(response, str) else str(response)
+                messages = [
+                    SystemMessage(content=system_prompt),
+                    HumanMessage(content=user_message)
+                ]
+                
+                response = llm.invoke(messages)
+                answer = response.content if hasattr(response, 'content') else str(response)
 
             else:
                 # Default fallback to Llama if unknown model choice
@@ -856,9 +857,6 @@ CONTEXTE DOCUMENTAIRE:
                     return None, None
 
                 progress_container.info("Utilisation d'OpenRouter avec Llama 4 Maverick (par défaut)...")
-                
-                from langchain_openai import ChatOpenAI
-                from langchain_core.messages import HumanMessage, SystemMessage
                 
                 llm = ChatOpenAI(
                     temperature=0.7,
