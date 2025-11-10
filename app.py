@@ -827,41 +827,6 @@ CONTEXTE DOCUMENTAIRE:
                 response = llm.invoke(messages)
                 answer = response.content if hasattr(response, 'content') else str(response)
 
-            elif model_choice == "zephyr":
-                if not hf_api_key:
-                    st.error("Hugging Face API key is required to use Zephyr model")
-                    return None, None
-
-                progress_container.info("Utilisation de Hugging Face avec Zephyr...")
-                
-                # Use HuggingFace's new router endpoint with OpenAI-compatible API
-                # Add repetition penalties to prevent gibberish loops
-                llm = ChatOpenAI(
-                    temperature=0.3,  # Lower temperature for more focused output
-                    model_name="HuggingFaceH4/zephyr-7b-beta:featherless-ai",
-                    openai_api_key=hf_api_key,
-                    max_tokens=1500,
-                    openai_api_base="https://router.huggingface.co/v1",
-                    default_headers={
-                        "HTTP-Referer": "https://streamlit-rag-app.com",
-                        "X-Title": "Streamlit RAG App"
-                    },
-                    model_kwargs={
-                        "frequency_penalty": 0.7,  # Penalize repeated tokens
-                        "presence_penalty": 0.6,   # Encourage new topics
-                        "top_p": 0.9,
-                        "stop": ["\n\n\n", "les résultats", "LES CHAMPIGNONS"]  # Stop sequences to prevent loops
-                    }
-                )
-                
-                messages = [
-                    SystemMessage(content=system_prompt),
-                    HumanMessage(content=user_message)
-                ]
-                
-                response = llm.invoke(messages)
-                answer = response.content if hasattr(response, 'content') else str(response)
-
             else:
                 # Default fallback to Llama if unknown model choice
                 if not openrouter_api_key:
@@ -1096,7 +1061,7 @@ def input_fields():
         st.markdown("---")
 
         # Model selection with Ollama integration
-        model_options = ["llama", "zephyr", "mistral", "gemma", "qwen"]
+        model_options = ["llama", "mistral", "gemma", "qwen"]
         
         if ollama_available and ollama_models:
             # Add Ollama options
@@ -1115,7 +1080,6 @@ def input_fields():
             index=current_index,
             format_func=lambda x: {
                 "llama": "Llama (OpenRouter)",
-                "zephyr": "Zephyr (HuggingFace)",
                 "mistral": "Mistral (HuggingFace)",
                 "gemma": "Gemma (OpenRouter)",
                 "qwen": "Qwen (OpenRouter)",
@@ -1239,13 +1203,6 @@ def input_fields():
                         * Aucune clé API requise
                         * Traitement privé et sécurisé
                         """)
-            elif st.session_state.model_choice == "zephyr":
-                st.markdown("""
-                **Zephyr-7b-beta:featherless-ai**
-                
-                * Bonne compréhension des instructions
-                * Précision factuelle solide
-                """)
             elif st.session_state.model_choice == "mistral":
                 st.markdown("""
                 **Mistral-7B-Instruct**
