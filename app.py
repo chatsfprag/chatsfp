@@ -751,7 +751,7 @@ CONTEXTE DOCUMENTAIRE:
                 
                 llm = ChatOpenAI(
                     temperature=0.7,
-                    model_name="google/gemma-3n-e4b-it:free",
+                    model_name="google/gemma-3-12b-it:free",
                     openai_api_key=openrouter_api_key,
                     max_tokens=2000,
                     openai_api_base="https://openrouter.ai/api/v1",
@@ -774,14 +774,14 @@ CONTEXTE DOCUMENTAIRE:
                     st.error("OpenRouter API key is required to use Qwen model")
                     return None, None
 
-                progress_container.info("Utilisation d'OpenRouter avec Qwen3 32B...")
+                progress_container.info("Utilisation d'OpenRouter avec Qwen3 14B...")
                 
                 from langchain_openai import ChatOpenAI
                 from langchain_core.messages import HumanMessage, SystemMessage
                 
                 llm = ChatOpenAI(
                     temperature=0.7,
-                    model_name="qwen/qwen3-32b:free",
+                    model_name="qwen/qwen3-14b:free",
                     openai_api_key=openrouter_api_key,
                     max_tokens=2000,
                     openai_api_base="https://openrouter.ai/api/v1",
@@ -809,7 +809,7 @@ CONTEXTE DOCUMENTAIRE:
                 
                 # For HuggingFace models, keep the existing approach
                 llm = HuggingFaceHub(
-                    repo_id="mistralai/Mistral-7B-Instruct-v0.3",
+                    repo_id="mistralai/Mistral-7B-Instruct-v0.2:featherless-ai",
                     huggingfacehub_api_token=hf_api_key,
                     model_kwargs={
                         "temperature": 0.7,
@@ -833,7 +833,7 @@ CONTEXTE DOCUMENTAIRE:
                 progress_container.info("Utilisation de Hugging Face avec Zephyr...")
                 
                 llm = HuggingFaceHub(
-                    repo_id="HuggingFaceH4/zephyr-7b-beta",
+                    repo_id="HuggingFaceH4/zephyr-7b-beta:featherless-ai",
                     huggingfacehub_api_token=hf_api_key,
                     model_kwargs={
                         "temperature": 0.7,
@@ -1184,14 +1184,14 @@ def input_fields():
                         """)
             elif st.session_state.model_choice == "zephyr":
                 st.markdown("""
-                **Zephyr-7b-beta**
+                **Zephyr-7b-beta:featherless-ai**
                 
                 * Bonne compréhension des instructions
                 * Précision factuelle solide
                 """)
             elif st.session_state.model_choice == "mistral":
                 st.markdown("""
-                **Mistral-7B-Instruct-v0.3**
+                **Mistral-7B-Instruct**
                 
                 * Raisonnement sur documents scientifiques
                 * Bonne extraction d'informations
@@ -1199,7 +1199,7 @@ def input_fields():
                 """)
             elif st.session_state.model_choice == "gemma":
                 st.markdown("""
-                **Gemma-3n-e4b-it**
+                **Gemma-3-12b-it**
                 
                 * Fenêtre contextuelle 32K tokens
                 * Multilingue (140+ langues)
@@ -1214,7 +1214,7 @@ def input_fields():
                 """)
             elif st.session_state.model_choice == "qwen":
                 st.markdown("""
-                **Qwen3-32B**
+                **Qwen3-14B**
                 
                 * Excellente logique et raisonnement  
                 * Contexte étendu jusqu'à 131K tokens  
