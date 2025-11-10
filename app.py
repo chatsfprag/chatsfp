@@ -809,7 +809,7 @@ CONTEXTE DOCUMENTAIRE:
                 
                 # For HuggingFace models, keep the existing approach
                 llm = HuggingFaceHub(
-                    repo_id="mistralai/Mistral-7B-Instruct-v0.2:featherless-ai",
+                    repo_id="mistralai/Mistral-7B-Instruct-v0.2",
                     huggingfacehub_api_token=hf_api_key,
                     model_kwargs={
                         "temperature": 0.7,
@@ -833,7 +833,7 @@ CONTEXTE DOCUMENTAIRE:
                 progress_container.info("Utilisation de Hugging Face avec Zephyr...")
                 
                 llm = HuggingFaceHub(
-                    repo_id="HuggingFaceH4/zephyr-7b-beta:featherless-ai",
+                    repo_id="HuggingFaceH4/zephyr-7b-beta",
                     huggingfacehub_api_token=hf_api_key,
                     model_kwargs={
                         "temperature": 0.7,
