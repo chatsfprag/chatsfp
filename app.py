@@ -804,7 +804,7 @@ CONTEXTE DOCUMENTAIRE:
                 # Use HuggingFace's new router endpoint with OpenAI-compatible API
                 llm = ChatOpenAI(
                     temperature=0.7,
-                    model_name="mistralai/Mistral-7B-Instruct-v0.2",
+                    model_name="mistralai/Mistral-7B-Instruct-v0.2:featherless-ai",
                     openai_api_key=hf_api_key,
                     max_tokens=2000,
                     openai_api_base="https://router.huggingface.co/v1",
@@ -832,7 +832,7 @@ CONTEXTE DOCUMENTAIRE:
                 # Use HuggingFace's new router endpoint with OpenAI-compatible API
                 llm = ChatOpenAI(
                     temperature=0.7,
-                    model_name="HuggingFaceH4/zephyr-7b-beta",
+                    model_name="HuggingFaceH4/zephyr-7b-beta:featherless-ai",
                     openai_api_key=hf_api_key,
                     max_tokens=2000,
                     openai_api_base="https://router.huggingface.co/v1",
@@ -1017,14 +1017,26 @@ def input_fields():
         # Vérifier si on a des fichiers uploadés
         has_uploaded_files = bool(st.session_state.uploaded_files)
 
+        # Initialize checkboxes if not set
+        if "use_uploaded_only" not in st.session_state:
+            st.session_state.use_uploaded_only = False
+        if "use_precomputed" not in st.session_state:
+            st.session_state.use_precomputed = True
+
         # Checkbox pour utiliser uniquement les fichiers téléchargés
-        st.session_state.use_uploaded_only = st.checkbox(
+        use_uploaded_only = st.checkbox(
             "Utiliser uniquement fichiers téléchargés",
-            value=False,  # Toujours False par défaut
+            value=st.session_state.use_uploaded_only,
             disabled=not has_uploaded_files,
             help="Traite seulement vos fichiers XML téléchargés" if has_uploaded_files else "Téléchargez d'abord des fichiers XML",
             key="use_uploaded_only_cb"
         )
+        
+        if use_uploaded_only != st.session_state.use_uploaded_only:
+            st.session_state.use_uploaded_only = use_uploaded_only
+            # When switching to uploaded only, disable precomputed
+            if use_uploaded_only:
+                st.session_state.use_precomputed = False
 
         # Checkbox pour les embeddings pré-calculés - désactivé si on utilise seulement les fichiers uploadés
         embeddings_path = EMBEDDINGS_DIR / "faiss_index"
@@ -1033,15 +1045,18 @@ def input_fields():
         # Logique conditionnelle : si on utilise seulement les fichiers uploadés, on ne peut pas utiliser les embeddings pré-calculés
         can_use_precomputed = embeddings_available and not st.session_state.use_uploaded_only
 
-        st.session_state.use_precomputed = st.checkbox(
+        use_precomputed = st.checkbox(
             "Utiliser embeddings pré-calculés",
-            value=can_use_precomputed,
+            value=st.session_state.use_precomputed and can_use_precomputed,
             disabled=not can_use_precomputed,
             help="Charge rapidement le corpus par défaut" if can_use_precomputed else 
                  "Non disponible car vous utilisez uniquement vos fichiers" if st.session_state.use_uploaded_only else
                  "Embeddings pré-calculés non trouvés",
             key="use_precomputed_cb"
         )
+        
+        if use_precomputed != st.session_state.use_precomputed:
+            st.session_state.use_precomputed = use_precomputed
 
         # Afficher les métadonnées si embeddings pré-calculés disponibles
         if embeddings_available and st.session_state.use_precomputed:
@@ -1075,10 +1090,17 @@ def input_fields():
             # Add Ollama options
             model_options.append("ollama")
 
-        # Model selection
-        st.session_state.model_choice = st.radio(
+        # Initialize default model choice if not set
+        if "model_choice" not in st.session_state:
+            st.session_state.model_choice = "llama"
+
+        # Model selection - get index for current choice
+        current_index = model_options.index(st.session_state.model_choice) if st.session_state.model_choice in model_options else 0
+
+        model_choice = st.radio(
             "Modèle LLM",
             model_options,
+            index=current_index,
             format_func=lambda x: {
                 "llama": "Llama (OpenRouter)",
                 "zephyr": "Zephyr (HuggingFace)",
@@ -1090,6 +1112,10 @@ def input_fields():
             horizontal=False,
             key="model_choice_radio"
         )
+        
+        # Update session state only if changed
+        if model_choice != st.session_state.model_choice:
+            st.session_state.model_choice = model_choice
 
        # Ollama model selection
         if st.session_state.model_choice == "ollama" and ollama_available:
@@ -1099,17 +1125,25 @@ def input_fields():
                 other_models = [m for m in ollama_models if 'deepseek' not in m.lower()]
                 sorted_models = deepseek_models + other_models
                 
-                default_index = 0
-                if 'deepseek-r1' in sorted_models:
-                    default_index = sorted_models.index('deepseek-r1')
+                # Initialize ollama_model if not set
+                if "ollama_model" not in st.session_state or st.session_state.ollama_model not in sorted_models:
+                    if 'deepseek-r1' in sorted_models:
+                        st.session_state.ollama_model = 'deepseek-r1'
+                    else:
+                        st.session_state.ollama_model = sorted_models[0]
                 
-                st.session_state.ollama_model = st.selectbox(
+                current_index = sorted_models.index(st.session_state.ollama_model) if st.session_state.ollama_model in sorted_models else 0
+                
+                ollama_model = st.selectbox(
                     "Modèle Ollama",
                     sorted_models,
-                    index=default_index,
+                    index=current_index,
                     key="ollama_model_select",
                     help="Modèles DeepSeek recommandés pour de meilleures performances"
                 )
+                
+                if ollama_model != st.session_state.ollama_model:
+                    st.session_state.ollama_model = ollama_model
                 
                 # Show model info
                 if st.session_state.ollama_model:
@@ -1132,23 +1166,36 @@ def input_fields():
             st.info("💡 Ollama non disponible - utilisez les modèles cloud")
 
         # Retrieval method
-        st.session_state.search_type = st.radio(
+        if "search_type" not in st.session_state:
+            st.session_state.search_type = "similarity"
+        
+        search_type = st.radio(
             "Méthode de recherche",
             ["similarity", "mmr"],
+            index=0 if st.session_state.search_type == "similarity" else 1,
             format_func=lambda x: {
                 "similarity": "🎯 Cosine (précision)",
                 "mmr": "🔄 MMR (diversité)"
             }[x],
             key="search_type_radio"
         )
+        
+        if search_type != st.session_state.search_type:
+            st.session_state.search_type = search_type
 
         # Debug mode toggle
-        st.session_state.debug_retrieval = st.checkbox(
+        if "debug_retrieval" not in st.session_state:
+            st.session_state.debug_retrieval = False
+        
+        debug_retrieval = st.checkbox(
             "🔍 Mode debug récupération",
-            value=False,
+            value=st.session_state.debug_retrieval,
             help="Affiche les détails du processus de nettoyage des requêtes et de récupération des documents",
             key="debug_retrieval_cb"
         )
+        
+        if debug_retrieval != st.session_state.debug_retrieval:
+            st.session_state.debug_retrieval = debug_retrieval
 
         # Model information
         with st.expander("Infos modèle", expanded=False):
