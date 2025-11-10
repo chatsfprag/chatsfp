@@ -67,6 +67,20 @@ st.markdown("""
     border-radius: 10px;
     margin-bottom: 2rem;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+.logo-container {
+    flex-shrink: 0;
+}
+.logo-container img {
+    border-radius: 8px;
+    background: white;
+    padding: 0.5rem;
+}
+.header-content {
+    flex-grow: 1;
 }
 .main-title {
     color: white;
@@ -79,11 +93,12 @@ st.markdown("""
     color: #f0f0f0;
     font-size: 1.1rem;
     margin-top: 0.5rem;
+    margin-bottom: 0.3rem;
 }
 .team-credit {
     color: #e0e0e0;
     font-size: 0.9rem;
-    margin-top: 0.3rem;
+    margin: 0;
 }
 .welcome-card {
     background-color: #f8f9fa;
@@ -96,20 +111,18 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Header section with logo and title
-col_logo, col_title = st.columns([1, 5])
-
-with col_logo:
-    if os.path.exists("static/sfp_logo.png"):
-        st.image("static/sfp_logo.png", width=80)
-
-with col_title:
-    st.markdown("""
-    <div class="main-header">
+st.markdown("""
+<div class="main-header">
+    <div class="logo-container">
+        <img src="app/static/sfp_logo.png" width="80" alt="SFP Logo">
+    </div>
+    <div class="header-content">
         <h1 class="main-title">ChatSFP</h1>
         <p class="subtitle">Exploiter l'intelligence artificielle pour valoriser le patrimoine scientifique</p>
         <p class="team-credit">Projet préparé par l'équipe ObTIC</p>
     </div>
-    """, unsafe_allow_html=True)
+</div>
+""", unsafe_allow_html=True)
 
 # Welcome message for first-time users
 if "messages" not in st.session_state or len(st.session_state.messages) == 0:
