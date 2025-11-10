@@ -1060,7 +1060,7 @@ def input_fields():
         if "openrouter_api_key" in st.secrets:
             st.session_state.openrouter_api_key = st.secrets.openrouter_api_key
         else:
-            st.session_state.openrouter_api_key = st.text_input("OpenRouter API Key (Llama 4)", type="password", key="openrouter_key")
+            st.session_state.openrouter_api_key = st.text_input("OpenRouter API Key", type="password", key="openrouter_key")
             
         # Initialize uploaded_files in session state if not present
         if "uploaded_files" not in st.session_state:
