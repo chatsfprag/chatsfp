@@ -58,11 +58,73 @@ NAMESPACES = {
     'tei': 'http://www.tei-c.org/ns/1.0'
 }
 
-st.title("ChatSFP")
-if os.path.exists("static/sfp_logo.png"):
-    st.image("static/sfp_logo.png", width=100)
-st.markdown("### Exploiter l’intelligence artificielle pour valoriser le patrimoine scientifique.")
-st.markdown("#### Projet préparé par l'équipe ObTIC.")
+# Custom CSS for better UI
+st.markdown("""
+<style>
+.main-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 2rem;
+    border-radius: 10px;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+.main-title {
+    color: white;
+    font-size: 2.5rem;
+    font-weight: bold;
+    margin: 0;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+}
+.subtitle {
+    color: #f0f0f0;
+    font-size: 1.1rem;
+    margin-top: 0.5rem;
+}
+.team-credit {
+    color: #e0e0e0;
+    font-size: 0.9rem;
+    margin-top: 0.3rem;
+}
+.welcome-card {
+    background-color: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 8px;
+    border-left: 4px solid #667eea;
+    margin-bottom: 1.5rem;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# Header section with logo and title
+col_logo, col_title = st.columns([1, 5])
+
+with col_logo:
+    if os.path.exists("static/sfp_logo.png"):
+        st.image("static/sfp_logo.png", width=80)
+
+with col_title:
+    st.markdown("""
+    <div class="main-header">
+        <h1 class="main-title">ChatSFP</h1>
+        <p class="subtitle">Exploiter l'intelligence artificielle pour valoriser le patrimoine scientifique</p>
+        <p class="team-credit">Projet préparé par l'équipe ObTIC</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+# Welcome message for first-time users
+if "messages" not in st.session_state or len(st.session_state.messages) == 0:
+    st.markdown("""
+    <div class="welcome-card">
+        <h3>👋 Bienvenue sur ChatSFP</h3>
+        <p>Explorez les bulletins de la Société Française de Parasitologie grâce à l'intelligence artificielle.</p>
+        <p><strong>Pour commencer:</strong></p>
+        <ol>
+            <li>Chargez les embeddings pré-calculés ou traitez vos documents en format XML-TEI</li>
+            <li>Choisissez votre modèle LLM préféré dans la barre latérale</li>
+            <li>Posez vos questions sur les documents scientifiques</li>
+        </ol>
+    </div>
+    """, unsafe_allow_html=True)
 
 ############################
 # Query Cleaning Class
