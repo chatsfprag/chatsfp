@@ -791,11 +791,11 @@ CONTEXTE DOCUMENTAIRE:
                     st.error("OpenRouter API key is required to use OpenRouter models")
                     return None, None
 
-                progress_container.info("Utilisation d'OpenRouter avec Llama 4 Maverick...")
+                progress_container.info("Utilisation d'OpenRouter avec Llama...")
                 
                 llm = ChatOpenAI(
                     temperature=0.7,
-                    model_name="meta-llama/llama-4-maverick:free",
+                    model_name="meta-llama/llama-3.3-70b-instruct:free",
                     openai_api_key=openrouter_api_key,
                     max_tokens=2000,
                     openai_api_base="https://openrouter.ai/api/v1",
@@ -908,11 +908,11 @@ CONTEXTE DOCUMENTAIRE:
                     st.error("OpenRouter API key is required for the default Llama model")
                     return None, None
 
-                progress_container.info("Utilisation d'OpenRouter avec Llama 4 Maverick (par défaut)...")
+                progress_container.info("Utilisation d'OpenRouter avec Llama 3 (par défaut)...")
                 
                 llm = ChatOpenAI(
                     temperature=0.7,
-                    model_name="meta-llama/llama-4-maverick:free",
+                    model_name="meta-llama/llama-3.3-70b-instruct:free",
                     openai_api_key=openrouter_api_key,
                     max_tokens=2000,
                     openai_api_base="https://openrouter.ai/api/v1",
@@ -1295,7 +1295,7 @@ def input_fields():
                 """)
             elif st.session_state.model_choice == "llama":
                 st.markdown("""
-                **Llama 4 Maverick**
+                **Llama 3.3 70B instruct**
                 
                 * Dernière génération de Llama
                 * Performances supérieures
