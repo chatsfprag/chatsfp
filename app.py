@@ -541,12 +541,25 @@ def split_documents(documents):
 
 @st.cache_resource
 def get_embeddings(model_name):
-    """Cached embedding model to prevent reloading."""
+    """Cached embedding model - shared across ALL sessions."""
     return HuggingFaceEmbeddings(
         model_name=model_name,
         model_kwargs={"device": "cpu"},
-        encode_kwargs={"batch_size": 16}
+        encode_kwargs={"batch_size": 8} 
     )
+
+@st.cache_resource
+def get_vectorstore(embeddings_path_str, embedding_model):
+    """Cache the entire vectorstore - shared across ALL sessions."""
+    embeddings = get_embeddings(embedding_model)
+    
+    vectordb = FAISS.load_local(
+        embeddings_path_str,
+        embeddings,
+        allow_dangerous_deserialization=True
+    )
+    
+    return vectordb
 
 def load_precomputed_embeddings():
     """Load precomputed embeddings with memory optimization."""
@@ -565,7 +578,7 @@ def load_precomputed_embeddings():
         st.error(f"Index pickle file not found at {embeddings_path}/index.pkl")
         return None
     
-    # Check if already loaded - prevent double loading
+    # Check if already loaded in THIS session
     if st.session_state.get('embeddings_loaded') and st.session_state.get('retriever'):
         st.info("Embeddings déjà chargés. Utilisation de la version en mémoire.")
         return st.session_state.retriever
@@ -585,29 +598,18 @@ def load_precomputed_embeddings():
             st.warning(f"Error loading metadata: {str(e)}")
     
     try:
-        # Use the EXTERNAL cached function
-        embeddings = get_embeddings(embedding_model)
-        st.success(f"Query embeddings will use: {embeddings.model_name}")
+        # Use cached vectorstore - this is shared across sessions
+        vectordb = get_vectorstore(embeddings_path.as_posix(), embedding_model)
         
-        try:
-            st.info(f"Loading FAISS index with model: {embedding_model}")
-            vectordb = FAISS.load_local(
-                embeddings_path.as_posix(), 
-                embeddings,
-                allow_dangerous_deserialization=True
-            )
+        st.success(f"Query embeddings will use: {embedding_model}")
+        
+        enhanced_retriever = EnhancedRetriever(vectordb)
+        st.success("FAISS index loaded successfully with enhanced retrieval!")
+        
+        return enhanced_retriever
             
-            enhanced_retriever = EnhancedRetriever(vectordb)
-            st.success("FAISS index loaded successfully with enhanced retrieval!")
-            
-            return enhanced_retriever
-            
-        except Exception as e:
-            st.error(f"Error loading FAISS index: {str(e)}")
-            return None
-    
     except Exception as e:
-        st.error(f"Error in embeddings initialization: {str(e)}")
+        st.error(f"Error loading FAISS index: {str(e)}")
         return None
 
 
