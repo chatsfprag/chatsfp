@@ -1,7 +1,7 @@
 [server]
 enableStaticServing = true
-maxUploadSize = 200
-maxMessageSize = 200
+maxUploadSize = 50
+maxMessageSize = 50
 headless = true
 address = "0.0.0.0"
 port = 8501
