@@ -126,9 +126,3 @@ else
     echo "   Check the logs: $COMPOSE_CMD logs rag-app"
     echo "   Or try accessing: http://localhost:8503"
 fi
-
-echo ""
-echo "📝 Note: Your other services remain running:"
-echo "   - eScriptorium: http://localhost:8501"
-echo "   - Flower: http://localhost:5555"
-echo "   - Pandore: http://localhost:8550"
