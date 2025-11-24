@@ -539,30 +539,9 @@ def split_documents(documents):
     texts = text_splitter.split_documents(documents)
     return texts
 
-@st.cache_resource
-def get_embeddings(model_name):
-    """Cached embedding model - shared across ALL sessions."""
-    return HuggingFaceEmbeddings(
-        model_name=model_name,
-        model_kwargs={"device": "cpu"},
-        encode_kwargs={"batch_size": 8} 
-    )
-
-@st.cache_resource
-def get_vectorstore(embeddings_path_str, embedding_model):
-    """Cache the entire vectorstore - shared across ALL sessions."""
-    embeddings = get_embeddings(embedding_model)
-    
-    vectordb = FAISS.load_local(
-        embeddings_path_str,
-        embeddings,
-        allow_dangerous_deserialization=True
-    )
-    
-    return vectordb
 
 def load_precomputed_embeddings():
-    """Load precomputed embeddings with memory optimization."""
+    """Load precomputed embeddings from the embeddings directory (no global caching)."""
     embeddings_path = EMBEDDINGS_DIR / "faiss_index"
     metadata_path = EMBEDDINGS_DIR / "document_metadata.pkl"
     
@@ -578,12 +557,7 @@ def load_precomputed_embeddings():
         st.error(f"Index pickle file not found at {embeddings_path}/index.pkl")
         return None
     
-    # Check if already loaded in THIS session
-    if st.session_state.get('embeddings_loaded') and st.session_state.get('retriever'):
-        st.info("Embeddings déjà chargés. Utilisation de la version en mémoire.")
-        return st.session_state.retriever
-    
-    embedding_model = "intfloat/multilingual-e5-large-instruct"
+    embedding_model = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
     
     if metadata_path.exists():
         try:
@@ -592,24 +566,51 @@ def load_precomputed_embeddings():
                 st.success(f"Loaded pre-computed embeddings with {metadata['chunk_count']} chunks from {metadata['document_count']} documents")
                 
                 if 'model_name' in metadata:
-                    embedding_model = metadata['model_name']
-                    st.info(f"Embedding model: {embedding_model}")
+                    # Overwrite default with the model used for pre-calculation
+                    embedding_model = metadata['model_name'] 
+                    st.info(f"Embedding model from metadata: {embedding_model}")
         except Exception as e:
-            st.warning(f"Error loading metadata: {str(e)}")
+            st.warning(f"Error loading metadata: {str(e)}. Using default model.")
+    else:
+        st.warning("Metadata file not found. Using default embedding model.")
     
     try:
-        # Use cached vectorstore - this is shared across sessions
-        vectordb = get_vectorstore(embeddings_path.as_posix(), embedding_model)
+        # Load embedding model directly (no @st.cache_resource)
+        embeddings = HuggingFaceEmbeddings(
+            model_name=embedding_model,
+            model_kwargs={"device": "cpu"},
+            # Added a common E5 instruction argument, safe to keep even if not E5
+            encode_kwargs={"batch_size": 8} 
+        )
+        st.success(f"Query embeddings will use: {embeddings.model_name}")
         
-        st.success(f"Query embeddings will use: {embedding_model}")
-        
-        enhanced_retriever = EnhancedRetriever(vectordb)
-        st.success("FAISS index loaded successfully with enhanced retrieval!")
-        
-        return enhanced_retriever
+        try:
+            st.info(f"Loading FAISS index with model: {embedding_model}")
+            # Load FAISS index directly (no @st.cache_resource)
+            vectordb = FAISS.load_local(
+                embeddings_path.as_posix(),
+                embeddings,
+                allow_dangerous_deserialization=True
+            )
             
+            enhanced_retriever = EnhancedRetriever(vectordb)
+            
+            # --- Memory Optimization: Use session state to prevent reloading within the session ---
+            st.session_state.embeddings_loaded = True
+            st.session_state.retriever = enhanced_retriever
+            # -----------------------------------------------------------------------------------
+            
+            st.success("FAISS index loaded successfully with enhanced retrieval!")
+            
+            return enhanced_retriever
+                
+        except Exception as e:
+            st.error(f"Error loading FAISS index: {str(e)}")
+            st.error("Unable to load pre-computed embeddings.")
+            return None
+
     except Exception as e:
-        st.error(f"Error loading FAISS index: {str(e)}")
+        st.error(f"Error in embeddings initialization: {str(e)}")
         return None
 
 
