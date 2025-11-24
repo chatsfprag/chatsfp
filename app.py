@@ -539,6 +539,15 @@ def split_documents(documents):
     texts = text_splitter.split_documents(documents)
     return texts
 
+@st.cache_resource
+def get_embeddings(model_name):
+    """Cached embedding model to prevent reloading."""
+    return HuggingFaceEmbeddings(
+        model_name=model_name,
+        model_kwargs={"device": "cpu"},
+        encode_kwargs={"batch_size": 16}
+    )
+
 def load_precomputed_embeddings():
     """Load precomputed embeddings with memory optimization."""
     embeddings_path = EMBEDDINGS_DIR / "faiss_index"
@@ -576,15 +585,7 @@ def load_precomputed_embeddings():
             st.warning(f"Error loading metadata: {str(e)}")
     
     try:
-        # FIX: Use cached embeddings to avoid reloading the model
-        @st.cache_resource
-        def get_embeddings(model_name):
-            return HuggingFaceEmbeddings(
-                model_name=model_name,
-                model_kwargs={"device": "cpu"},
-                encode_kwargs={"batch_size": 16}  # Further reduced for Streamlit Cloud
-            )
-        
+        # Use the EXTERNAL cached function
         embeddings = get_embeddings(embedding_model)
         st.success(f"Query embeddings will use: {embeddings.model_name}")
         
