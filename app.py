@@ -238,7 +238,7 @@ class QueryCleaner:
             st.write(f"**Termes extraits:** {clean_tokens}")
 
         return cleaned_query
-
+    
 def format_query_for_e5_instruct(query: str) -> str:
     """Format query for E5-large-instruct model."""
     task = "Given scientific documents about parasitology in French, retrieve relevant passages that answer the query"
@@ -539,9 +539,8 @@ def split_documents(documents):
     texts = text_splitter.split_documents(documents)
     return texts
 
-
 def load_precomputed_embeddings():
-    """Load precomputed embeddings from the embeddings directory (no global caching)."""
+    """Load precomputed embeddings from the embeddings directory."""
     embeddings_path = EMBEDDINGS_DIR / "faiss_index"
     metadata_path = EMBEDDINGS_DIR / "document_metadata.pkl"
     
@@ -566,53 +565,47 @@ def load_precomputed_embeddings():
                 st.success(f"Loaded pre-computed embeddings with {metadata['chunk_count']} chunks from {metadata['document_count']} documents")
                 
                 if 'model_name' in metadata:
-                    # Overwrite default with the model used for pre-calculation
-                    embedding_model = metadata['model_name'] 
-                    st.info(f"Embedding model from metadata: {embedding_model}")
+                    embedding_model = metadata['model_name']
+                    st.info(f"Embedding model: {embedding_model}")
+                else:
+                    st.warning("Model information not found in metadata, using default model")
         except Exception as e:
-            st.warning(f"Error loading metadata: {str(e)}. Using default model.")
+            st.warning(f"Error loading metadata: {str(e)}")
+            st.warning("Using default embedding model")
     else:
         st.warning("Metadata file not found. Using default embedding model.")
     
     try:
-        # Load embedding model directly (no @st.cache_resource)
         embeddings = HuggingFaceEmbeddings(
             model_name=embedding_model,
-            model_kwargs={"device": "cpu"},
-            # Added a common E5 instruction argument, safe to keep even if not E5
-            encode_kwargs={"batch_size": 8} 
+            model_kwargs={"device": "cpu"}
         )
         st.success(f"Query embeddings will use: {embeddings.model_name}")
+
         
         try:
             st.info(f"Loading FAISS index with model: {embedding_model}")
-            # Load FAISS index directly (no @st.cache_resource)
             vectordb = FAISS.load_local(
-                embeddings_path.as_posix(),
+                embeddings_path.as_posix(), 
                 embeddings,
                 allow_dangerous_deserialization=True
             )
+
             
+            # Return EnhancedRetriever instead of basic retriever
             enhanced_retriever = EnhancedRetriever(vectordb)
-            
-            # --- Memory Optimization: Use session state to prevent reloading within the session ---
-            st.session_state.embeddings_loaded = True
-            st.session_state.retriever = enhanced_retriever
-            # -----------------------------------------------------------------------------------
-            
+
             st.success("FAISS index loaded successfully with enhanced retrieval!")
-            
             return enhanced_retriever
-                
+            
         except Exception as e:
             st.error(f"Error loading FAISS index: {str(e)}")
-            st.error("Unable to load pre-computed embeddings.")
+            st.error("Unable to load pre-computed embeddings. You'll need to process documents instead.")
             return None
-
+    
     except Exception as e:
         st.error(f"Error in embeddings initialization: {str(e)}")
         return None
-
 
 def embeddings_on_local_vectordb(texts, hf_api_key):
     """Create embeddings and store in a local vector database using FAISS."""
@@ -689,16 +682,11 @@ def query_llm(retriever, query, hf_api_key, openai_api_key=None, openrouter_api_
     try:
         # Check if we have debug mode enabled
         debug_mode = st.session_state.get('debug_retrieval', False)
-        search_type = st.session_state.get('search_type', 'similarity')  # ADD THIS LINE
-
+        
         # Use enhanced retrieval
         if hasattr(retriever, 'retrieve_documents'):
-            # Enhanced retriever - NOW PASS search_type
-            relevant_docs = retriever.retrieve_documents(
-                query, 
-                debug=debug_mode,
-                search_type=search_type  # ADD THIS PARAMETER
-            )
+            # Enhanced retriever
+            relevant_docs = retriever.retrieve_documents(query, debug=debug_mode)
         else:
             # Fallback to standard retrieval
             relevant_docs = retriever.invoke(query)
@@ -1416,83 +1404,51 @@ def boot():
     if "embeddings_loaded" not in st.session_state:
         st.session_state.embeddings_loaded = False
     
-    # Add processing method tracker to prevent multiple loads
-    if "processing_method" not in st.session_state:
-        st.session_state.processing_method = None
-    
-    # Only show buttons if embeddings are NOT loaded
-    if not st.session_state.embeddings_loaded:
-        col1, col2 = st.columns(2)
+    # Add buttons for different processing methods
+    col1, col2 = st.columns(2)
 
-        # Déterminer quel bouton afficher selon la configuration
-        if st.session_state.use_precomputed and not st.session_state.use_uploaded_only:
-            # Mode embeddings pré-calculés
+    # Déterminer quel bouton afficher selon la configuration
+    if st.session_state.use_precomputed and not st.session_state.use_uploaded_only:
+        # Mode embeddings pré-calculés
+        with col1:
+            if st.button("⚡ Charger embeddings pré-calculés", use_container_width=True):
+                with st.spinner("Chargement des embeddings pré-calculés..."):
+                    st.session_state.retriever = load_precomputed_embeddings()
+                    if st.session_state.retriever:
+                        st.session_state.embeddings_loaded = True
+                        st.success("✅ Corpus pré-calculé chargé! Changez de modèle librement.")
+    
+    elif st.session_state.use_uploaded_only:
+        # Mode fichiers uploadés uniquement
+        if st.session_state.uploaded_files:
             with col1:
-                if st.button("⚡ Charger embeddings pré-calculés", 
-                           use_container_width=True,
-                           key="load_precomputed_btn"):
-                    with st.spinner("Chargement des embeddings pré-calculés..."):
-                        st.session_state.retriever = load_precomputed_embeddings()
-                        if st.session_state.retriever:
-                            st.session_state.embeddings_loaded = True
-                            st.session_state.processing_method = "precomputed"
-                            st.success("✅ Corpus pré-calculé chargé! Changez de modèle librement.")
-                            st.rerun()  # Force UI update
-        
-        elif st.session_state.use_uploaded_only:
-            # Mode fichiers uploadés uniquement
-            if st.session_state.uploaded_files:
-                with col1:
-                    if st.button("🔄 Traiter fichiers téléchargés", 
-                               use_container_width=True,
-                               key="process_uploaded_btn"):
-                        st.session_state.retriever = process_documents(
-                            st.session_state.hf_api_key,  
-                            st.session_state.use_uploaded_only
-                        )
-                        if st.session_state.retriever:
-                            st.session_state.embeddings_loaded = True
-                            st.session_state.processing_method = "uploaded"
-                            st.success("✅ Vos fichiers traités! Changez de modèle librement.")
-                            st.rerun()  # Force UI update
-            else:
-                with col1:
-                    st.warning("Téléchargez d'abord des fichiers XML")
-        
-        else:
-            # Mode retraitement du corpus par défaut
-            with col1:
-                if st.button("🔄 Traiter corpus par défaut", 
-                           use_container_width=True,
-                           key="process_default_btn"):
+                if st.button("🔄 Traiter fichiers téléchargés", use_container_width=True):
                     st.session_state.retriever = process_documents(
                         st.session_state.hf_api_key,  
                         st.session_state.use_uploaded_only
                     )
                     if st.session_state.retriever:
                         st.session_state.embeddings_loaded = True
-                        st.session_state.processing_method = "default"
-                        st.success("✅ Corpus retraité! Changez de modèle librement.")
-                        st.rerun()  # Force UI update
+                        st.success("✅ Vos fichiers traités! Changez de modèle librement.")
+        else:
+            with col1:
+                st.warning("Téléchargez d'abord des fichiers XML")
+    
+    else:
+        # Mode retraitement du corpus par défaut
+        with col1:
+            if st.button("🔄 Traiter corpus par défaut", use_container_width=True):
+                st.session_state.retriever = process_documents(
+                    st.session_state.hf_api_key,  
+                    st.session_state.use_uploaded_only
+                )
+                if st.session_state.retriever:
+                    st.session_state.embeddings_loaded = True
+                    st.success("✅ Corpus retraité! Changez de modèle librement.")
 
+    # Show current status
     if st.session_state.embeddings_loaded and st.session_state.retriever:
-        col_status, col_reset = st.columns([3, 1])
-        with col_status:
-            method_text = {
-                "precomputed": "Embeddings pré-calculés",
-                "uploaded": "Fichiers uploadés",
-                "default": "Corpus par défaut"
-            }.get(st.session_state.processing_method, "Embeddings")
-            
-            st.success(f"✅ {method_text} chargés - Modèle: {st.session_state.model_choice}")
-        
-        with col_reset:
-            if st.button("🔄 Recharger", key="reset_embeddings_btn"):
-                # Clear embeddings state
-                st.session_state.embeddings_loaded = False
-                st.session_state.retriever = None
-                st.session_state.processing_method = None
-                st.rerun()
+        st.info(f"🔄 Embeddings chargés - Modèle actuel: {st.session_state.model_choice}")
     
     # Display chat history
     for message in st.session_state.messages:
@@ -1513,7 +1469,7 @@ def boot():
                     st.session_state.retriever,  
                     query,  
                     st.session_state.hf_api_key,
-                    None,
+                    None,  # openai_api_key set to None
                     st.session_state.openrouter_api_key,  
                     st.session_state.model_choice
                 )
@@ -1534,42 +1490,35 @@ def boot():
                     
                     # Create an expander for each source
                     for i, doc in enumerate(source_docs):
+                        # Prepare document info
                         doc_title = doc.metadata.get('title', 'Document sans titre')
                         doc_date = doc.metadata.get('date', 'Date inconnue')
+                        doc_year = doc.metadata.get('year', '')
                         doc_file = doc.metadata.get('source', 'Fichier inconnu')
                         
+                        # Use expander as a button-like interface
                         with response_container.expander(f"📄 Source {i+1}: {doc_title}", expanded=False):
                             st.markdown(f"**Date:** {doc_date}")
                             st.markdown(f"**Fichier:** {doc_file}")
                             
+                            # Show persons if available
                             if doc.metadata.get('persons'):
                                 persons = doc.metadata.get('persons')
                                 if isinstance(persons, list) and persons:
                                     st.markdown("**Personnes mentionnées:**")
                                     st.markdown(", ".join(persons))
                             
+                            # Show content
                             st.markdown("**Extrait:**")
                             content = doc.page_content
+                            # Clean up content if needed
                             if content.startswith(f"Document: {doc_title}"):
                                 content = content.replace(f"Document: {doc_title} | Date: {doc_date}\n\n", "")
                             
-                            # FIX: Add label to text_area to fix accessibility warning
-                            st.text_area(
-                                "Contenu du document",  # Non-empty label
-                                value=content, 
-                                height=150, 
-                                disabled=True,
-                                label_visibility="collapsed",  # Hide the label
-                                key=f"source_content_{i}"  # Unique key
-                            )
+                            st.text_area("", value=content, height=150, disabled=True)
                 
             except Exception as e:
                 st.error(f"Error generating response: {e}")
-                # Clear potentially corrupted state
-                if "memory error" in str(e).lower() or "out of memory" in str(e).lower():
-                    st.warning("Mémoire insuffisante. Tentative de libération des ressources...")
-                    st.session_state.embeddings_loaded = False
-                    st.session_state.retriever = None
 
 if __name__ == '__main__':
     boot()
